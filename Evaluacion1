@@ -1,6 +1,10 @@
 import customtkinter as ctk
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+import tkinter as tk
+from tkinter import ttk
+
+# Clases para gestión de ingredientes y pedidos
 
 class Ingrediente:
     def __init__(self, nombre, cantidad, unidad_de_medida, costo):
@@ -14,44 +18,90 @@ class GestorDeStock:
         self.ingredientes = []
 
     def agregar_ingrediente(self, ingrediente):
+        # Actualiza la cantidad si el ingrediente ya existe
+        for ing in self.ingredientes:
+            if ing.nombre == ingrediente.nombre:
+                ing.cantidad += ingrediente.cantidad
+                return
         self.ingredientes.append(ingrediente)
+
+    def eliminar_ingrediente(self, nombre):
+        self.ingredientes = [ing for ing in self.ingredientes if ing.nombre != nombre]
+
+    def listar_ingredientes(self):
+        return self.ingredientes
+
+# Funciones para la interfaz gráfica
+
+gestor_stock = GestorDeStock()
+
+def agregar_ingrediente():
+    nombre = entrada_nombre.get().strip()
+    cantidad = entrada_cantidad.get().strip()
+
+    if validar_nombre(nombre) and validar_cantidad(cantidad):
+        nuevo_ingrediente = Ingrediente(nombre, int(cantidad), "unidad", 0)
+        gestor_stock.agregar_ingrediente(nuevo_ingrediente)
+        actualizar_treeview()
+    else:
+        ctk.messagebox.show_error("Error", "Datos inválidos")
+
+def eliminar_ingrediente():
+    selected_item = treeview.selection()
+    if selected_item:
+        nombre = treeview.item(selected_item, 'values')[0]
+        gestor_stock.eliminar_ingrediente(nombre)
+        actualizar_treeview()
+
+def actualizar_treeview():
+    for item in treeview.get_children():
+        treeview.delete(item)
     
-    def actualizar_stock(self, nombre, cantidad):
-        for ingrediente in self.ingredientes:
-            if ingrediente.nombre == nombre:
-                ingrediente.cantidad += cantidad
+    for ingrediente in gestor_stock.listar_ingredientes():
+        treeview.insert("", "end", values=(ingrediente.nombre, ingrediente.cantidad))
 
-class Producto:
-    def __init__(self, nombre, ingredientes, precio):
-        self.nombre = nombre
-        self.ingredientes = ingredientes
-        self.precio = precio
+def validar_nombre(nombre):
+    return nombre.replace(" ", "").isalpha()
 
-class Pedido:
-    def __init__(self):
-        self.productos = []
+def validar_cantidad(cantidad):
+    return cantidad.isdigit() and int(cantidad) > 0
 
-    def agregar_producto(self, producto, cantidad):
-        self.productos.append((producto, cantidad))
-    
-    def calcular_total(self):
-        return sum(producto.precio * cantidad for producto, cantidad in self.productos)
+# Creación de la ventana principal
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("green")
 
-class Boleta:
-    def __init__(self, pedido):
-        self.pedido = pedido
+ventana = ctk.CTk()
+ventana.title("Gestión de Ingredientes")
+ventana.geometry("700x600")
 
-    def generar_pdf(self, filename):
-        c = canvas.Canvas(filename, pagesize=A4)
-        c.drawString(100, 750, "Boleta de Venta")
-        y = 700
-        for producto, cantidad in self.pedido.productos:
-            c.drawString(100, y, f"{producto.nombre}: {cantidad} x {producto.precio} = {cantidad * producto.precio}")
-            y -= 20
-        c.drawString(100, y-20, f"Total: {self.pedido.calcular_total()}")
-        c.save()
+# Frame para agregar ingredientes
+frame_agregar = ctk.CTkFrame(ventana)
+frame_agregar.pack(fill="both", expand=True, padx=20, pady=10)
 
-# Ejemplo de uso
-if __name__ == "__main__":
-    root = ctk.CTk()
-    root.mainloop()
+ctk.CTkLabel(frame_agregar, text="Nombre del Ingrediente:").grid(row=0, column=0, pady=5)
+entrada_nombre = ctk.CTkEntry(frame_agregar)
+entrada_nombre.grid(row=0, column=1, pady=5)
+
+ctk.CTkLabel(frame_agregar, text="Cantidad:").grid(row=1, column=0, pady=5)
+entrada_cantidad = ctk.CTkEntry(frame_agregar)
+entrada_cantidad.grid(row=1, column=1, pady=5)
+
+boton_agregar = ctk.CTkButton(frame_agregar, text="Agregar Ingrediente", command=agregar_ingrediente)
+boton_agregar.grid(row=2, column=0, columnspan=2, pady=10)
+
+# Treeview para mostrar los ingredientes
+treeview = ttk.Treeview(ventana, columns=("nombre", "cantidad"), show="headings", height=8)
+treeview.column("nombre", anchor=tk.W, width=150)
+treeview.column("cantidad", anchor=tk.W, width=100)
+
+treeview.heading("nombre", text="Nombre")
+treeview.heading("cantidad", text="Cantidad")
+
+treeview.pack(fill="both", expand=True, padx=20, pady=10)
+
+# Botón para eliminar un ingrediente
+boton_eliminar = ctk.CTkButton(ventana, text="Eliminar Ingrediente", command=eliminar_ingrediente)
+boton_eliminar.pack(pady=10)
+
+ventana.mainloop()
+
